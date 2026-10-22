@@ -1,0 +1,13 @@
+{
+  "name": "salesflow-ai-assignment-bot",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Sankar Group Intern Assignment: AI Voice Sales Bot (SalesFlow AI)",
+  "scripts": {
+    "install:all": "npm --prefix server install && npm --prefix client install",
+    "dev:server": "npm --prefix server run dev",
+    "dev:client": "npm --prefix client run dev",
+    "dev": "echo 'Run npm run dev:server in one terminal and npm run dev:client in another terminal.'",
+    "build:client": "npm --prefix client run build"
+  }
+}
