@@ -10,27 +10,42 @@ export async function createRealtimeSession() {
     throw error;
   }
 
-  const model = process.env.OPENAI_REALTIME_MODEL?.trim()?.replace(/^['"]|['"]$/g, '') || 'gpt-4o-realtime-preview-2024-12-17';
+  // Map any obsolete preview model name to official GA realtime models
+  let model = process.env.OPENAI_REALTIME_MODEL?.trim()?.replace(/^['"]|['"]$/g, '');
+  if (!model || model.includes('preview')) {
+    model = 'gpt-realtime-mini';
+  }
+
   const voice = process.env.OPENAI_VOICE?.trim()?.replace(/^['"]|['"]$/g, '') || 'alloy';
   const instructions = buildSalesSystemPrompt();
 
+  // Official OpenAI Realtime GA client_secrets schema
   const sessionConfig = {
-    model,
-    voice,
-    instructions,
-    input_audio_transcription: {
-      model: 'whisper-1'
-    },
-    turn_detection: {
-      type: 'server_vad',
-      threshold: 0.5,
-      prefix_padding_ms: 300,
-      silence_duration_ms: 500
+    session: {
+      type: 'realtime',
+      model,
+      instructions,
+      audio: {
+        input: {
+          transcription: {
+            model: 'whisper-1'
+          },
+          turn_detection: {
+            type: 'server_vad',
+            threshold: 0.5,
+            prefix_padding_ms: 300,
+            silence_duration_ms: 500
+          }
+        },
+        output: {
+          voice
+        }
+      }
     }
   };
 
   try {
-    const response = await fetch('https://api.openai.com/v1/realtime/sessions', {
+    const response = await fetch('https://api.openai.com/v1/realtime/client_secrets', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
@@ -49,15 +64,20 @@ export async function createRealtimeSession() {
       throw error;
     }
 
-    if (!data.client_secret || !data.client_secret.value) {
-      throw new Error('OpenAI response did not include client_secret.value ephemeral key.');
+    const secretValue = data.value || data.client_secret?.value;
+    if (!secretValue) {
+      throw new Error('OpenAI response did not include client secret value.');
     }
 
     return {
-      client_secret: data.client_secret,
-      sessionId: data.id,
-      model: data.model,
-      voice: data.voice
+      client_secret: {
+        value: secretValue,
+        expires_at: data.expires_at || null
+      },
+      value: secretValue,
+      sessionId: data.session?.id || data.id,
+      model: data.session?.model || model,
+      voice
     };
   } catch (err) {
     if (!err.statusCode) {

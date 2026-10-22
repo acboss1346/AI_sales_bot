@@ -168,8 +168,8 @@ export function useRealtimeCall() {
 
       // 3. Mint short-lived ephemeral client session token from backend
       const sessionData = await fetchRealtimeSession();
-      const ephemeralKey = sessionData.client_secret?.value;
-      const model = sessionData.model || 'gpt-4o-realtime-preview-2024-12-17';
+      const ephemeralKey = sessionData.client_secret?.value || sessionData.value;
+      const model = sessionData.model || 'gpt-realtime-mini';
 
       if (!ephemeralKey) {
         throw new Error('Server did not return a valid Realtime ephemeral token');
@@ -245,6 +245,20 @@ export function useRealtimeCall() {
       dc.onopen = () => {
         console.log('⚡ WebRTC OpenAI Data Channel opened successfully');
         setCallStatus('connected');
+
+        // Trigger initial greeting from the assistant
+        try {
+          const triggerGreeting = {
+            type: 'response.create',
+            response: {
+              modalities: ['audio', 'text'],
+              instructions: 'Introduce yourself politely as SalesFlow AI and ask how you can help the customer today.'
+            }
+          };
+          dc.send(JSON.stringify(triggerGreeting));
+        } catch (greetErr) {
+          console.warn('Initial greeting trigger warning:', greetErr);
+        }
       };
 
       dc.onmessage = (e) => {
@@ -260,11 +274,11 @@ export function useRealtimeCall() {
         console.error('Data channel error:', err);
       };
 
-      // 9. Generate SDP Offer and exchange with OpenAI Realtime endpoint
+      // 9. Generate SDP Offer and exchange with OpenAI Realtime calls endpoint
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
 
-      const sdpResponse = await fetch(`https://api.openai.com/v1/realtime?model=${model}`, {
+      const sdpResponse = await fetch('https://api.openai.com/v1/realtime/calls', {
         method: 'POST',
         body: offer.sdp,
         headers: {

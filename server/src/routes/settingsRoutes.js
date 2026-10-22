@@ -8,8 +8,10 @@ const router = Router();
 router.get('/status', (req, res) => {
   const rawKey = process.env.OPENAI_API_KEY?.trim()?.replace(/^['"]|['"]$/g, '');
   const hasOpenAiKey = Boolean(rawKey && rawKey !== 'your_openai_api_key_here' && rawKey.length > 10);
-  const dbStatus = getDbStatus();
-  const realtimeModel = process.env.OPENAI_REALTIME_MODEL?.trim()?.replace(/^['"]|['"]$/g, '') || 'gpt-4o-realtime-preview-2024-12-17';
+  let realtimeModel = process.env.OPENAI_REALTIME_MODEL?.trim()?.replace(/^['"]|['"]$/g, '');
+  if (!realtimeModel || realtimeModel.includes('preview')) {
+    realtimeModel = 'gpt-realtime-mini';
+  }
   const summaryModel = process.env.OPENAI_SUMMARY_MODEL?.trim()?.replace(/^['"]|['"]$/g, '') || 'gpt-4o-mini';
   const voice = process.env.OPENAI_VOICE?.trim()?.replace(/^['"]|['"]$/g, '') || 'alloy';
 
