@@ -6,22 +6,31 @@ import crypto from 'crypto';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const DATA_FILE = path.resolve(__dirname, '../../data/calls.json');
+
+const isVercel = Boolean(process.env.VERCEL);
+const DATA_FILE = isVercel
+  ? '/tmp/calls.json'
+  : path.resolve(__dirname, '../../data/calls.json');
 
 // Initialize local JSON storage if needed
 function ensureLocalDataFile() {
-  const dir = path.dirname(DATA_FILE);
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
-  if (!fs.existsSync(DATA_FILE)) {
-    fs.writeFileSync(DATA_FILE, JSON.stringify([], null, 2), 'utf-8');
+  try {
+    const dir = path.dirname(DATA_FILE);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    if (!fs.existsSync(DATA_FILE)) {
+      fs.writeFileSync(DATA_FILE, JSON.stringify([], null, 2), 'utf-8');
+    }
+  } catch (err) {
+    console.warn('Could not ensure local data file:', err.message);
   }
 }
 
 function readLocalCalls() {
   try {
     ensureLocalDataFile();
+    if (!fs.existsSync(DATA_FILE)) return [];
     const raw = fs.readFileSync(DATA_FILE, 'utf-8');
     return JSON.parse(raw);
   } catch (err) {
@@ -43,8 +52,11 @@ let supabaseClient = null;
 let isSupabaseConfigured = false;
 
 export function initDb() {
-  const supabaseUrl = process.env.SUPABASE_URL?.trim();
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() || process.env.SUPABASE_ANON_KEY?.trim();
+  const rawUrl = process.env.SUPABASE_URL?.trim();
+  const rawKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() || process.env.SUPABASE_ANON_KEY?.trim();
+
+  const supabaseUrl = rawUrl?.replace(/^['"]|['"]$/g, '');
+  const supabaseKey = rawKey?.replace(/^['"]|['"]$/g, '');
 
   if (supabaseUrl && supabaseKey && !supabaseUrl.includes('your-project-id')) {
     try {
@@ -56,18 +68,22 @@ export function initDb() {
     } catch (err) {
       console.warn('⚠️ Failed to initialize Supabase client:', err.message);
       isSupabaseConfigured = false;
+      supabaseClient = null;
     }
   } else {
-    console.log('ℹ️ Supabase credentials not provided. Using local file persistence fallback (server/data/calls.json).');
-    ensureLocalDataFile();
+    isSupabaseConfigured = false;
+    supabaseClient = null;
   }
 }
 
 export function getDbStatus() {
+  if (!isSupabaseConfigured && process.env.SUPABASE_URL) {
+    initDb();
+  }
   return {
     type: isSupabaseConfigured ? 'supabase' : 'local_json',
     supabaseConfigured: isSupabaseConfigured,
-    url: isSupabaseConfigured ? process.env.SUPABASE_URL : null
+    url: isSupabaseConfigured ? (process.env.SUPABASE_URL?.replace(/^['"]|['"]$/g, '') || null) : null
   };
 }
 
@@ -233,13 +249,18 @@ export async function getCalls({ page = 1, limit = 20, status, search, sortBy = 
 }
 
 export async function getAnalytics() {
+  if (!isSupabaseConfigured && process.env.SUPABASE_URL) {
+    initDb();
+  }
   let calls = [];
 
   if (isSupabaseConfigured && supabaseClient) {
     try {
       const { data, error } = await supabaseClient.from('calls').select('*');
-      if (!error && data) {
+      if (!error && Array.isArray(data)) {
         calls = data;
+      } else {
+        calls = readLocalCalls();
       }
     } catch (err) {
       console.error('Supabase getAnalytics error, falling back to local:', err.message);
@@ -247,6 +268,10 @@ export async function getAnalytics() {
     }
   } else {
     calls = readLocalCalls();
+  }
+
+  if (!Array.isArray(calls)) {
+    calls = [];
   }
 
   const totalCalls = calls.length;

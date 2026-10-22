@@ -1,7 +1,7 @@
 import { buildSalesSystemPrompt } from '../utils/productConfig.js';
 
 export async function createRealtimeSession() {
-  const apiKey = process.env.OPENAI_API_KEY?.trim();
+  const apiKey = process.env.OPENAI_API_KEY?.trim()?.replace(/^['"]|['"]$/g, '');
 
   if (!apiKey || apiKey === 'your_openai_api_key_here') {
     const error = new Error('OpenAI API key is missing. Please set OPENAI_API_KEY in your server environment or .env file.');
@@ -10,8 +10,8 @@ export async function createRealtimeSession() {
     throw error;
   }
 
-  const model = process.env.OPENAI_REALTIME_MODEL?.trim() || 'gpt-4o-realtime-preview-2024-12-17';
-  const voice = process.env.OPENAI_VOICE?.trim() || 'alloy';
+  const model = process.env.OPENAI_REALTIME_MODEL?.trim()?.replace(/^['"]|['"]$/g, '') || 'gpt-4o-realtime-preview-2024-12-17';
+  const voice = process.env.OPENAI_VOICE?.trim()?.replace(/^['"]|['"]$/g, '') || 'alloy';
   const instructions = buildSalesSystemPrompt();
 
   const sessionConfig = {

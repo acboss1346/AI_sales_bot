@@ -2,14 +2,23 @@ import express from 'express';
 import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import dotenv from 'dotenv';
 
 import realtimeRoutes from './routes/realtimeRoutes.js';
 import callRoutes from './routes/callRoutes.js';
 import analyticsRoutes from './routes/analyticsRoutes.js';
 import settingsRoutes from './routes/settingsRoutes.js';
+import { initDb } from './services/db.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// Ensure .env is loaded if running locally
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
+dotenv.config({ path: path.resolve(__dirname, '../../.env') });
+
+// Initialize database
+initDb();
 
 export function createApp() {
   const app = express();
@@ -39,7 +48,11 @@ export function createApp() {
   app.use(express.urlencoded({ extended: true, limit: '20mb' }));
 
   // Static audio serving for local storage mode
-  const localRecordingsDir = path.resolve(__dirname, '../uploads/recordings');
+  const isVercel = Boolean(process.env.VERCEL);
+  const localRecordingsDir = isVercel
+    ? '/tmp/recordings'
+    : path.resolve(__dirname, '../uploads/recordings');
+
   app.use('/api/recordings', express.static(localRecordingsDir, {
     setHeaders: (res) => {
       res.setHeader('Accept-Ranges', 'bytes');
@@ -80,3 +93,7 @@ export function createApp() {
 
   return app;
 }
+
+// Export default app instance as expected by Vercel Express service runtime
+const app = createApp();
+export default app;

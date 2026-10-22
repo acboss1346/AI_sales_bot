@@ -21,8 +21,8 @@ export async function generateCallSummaryAndClassification(transcript = []) {
     };
   }
 
-  const apiKey = process.env.OPENAI_API_KEY?.trim();
-  const summaryModel = process.env.OPENAI_SUMMARY_MODEL?.trim() || 'gpt-4o-mini';
+  const apiKey = process.env.OPENAI_API_KEY?.trim()?.replace(/^['"]|['"]$/g, '');
+  const summaryModel = process.env.OPENAI_SUMMARY_MODEL?.trim()?.replace(/^['"]|['"]$/g, '') || 'gpt-4o-mini';
 
   // Format transcript into readable dialogue
   const formattedDialogue = transcript
