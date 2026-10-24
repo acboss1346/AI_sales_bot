@@ -21,17 +21,32 @@ export default function Dashboard() {
   const [systemStatus, setSystemStatus] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [analyticsError, setAnalyticsError] = useState(null);
 
   const loadData = async () => {
     try {
-      const [analyticsData, statusData] = await Promise.all([
+      const [analyticsResult, statusResult] = await Promise.allSettled([
         fetchAnalytics(),
         fetchSystemStatus()
       ]);
-      setAnalytics(analyticsData);
-      setSystemStatus(statusData);
+
+      if (analyticsResult.status === 'fulfilled') {
+        setAnalytics(analyticsResult.value);
+        setAnalyticsError(null);
+      } else {
+        console.error('Failed to load dashboard analytics:', analyticsResult.reason);
+        setAnalytics(null);
+        setAnalyticsError(analyticsResult.reason?.message || 'Failed to load dashboard analytics');
+      }
+
+      if (statusResult.status === 'fulfilled') {
+        setSystemStatus(statusResult.value);
+      } else {
+        console.warn('Could not load status:', statusResult.reason?.message);
+      }
     } catch (err) {
-      console.error('Failed to load dashboard analytics:', err);
+      console.error('Unexpected error loading dashboard data:', err);
+      setAnalyticsError(err.message || 'Unexpected error loading dashboard');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -121,6 +136,27 @@ export default function Dashboard() {
           >
             Setup in Settings
           </Link>
+        </div>
+      )}
+
+      {/* Banner if Analytics failed to load */}
+      {analyticsError && (
+        <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <ShieldAlert className="w-5 h-5 text-rose-400 shrink-0" />
+            <div>
+              <p className="text-sm font-semibold text-rose-300">Sales Analytics Offline</p>
+              <p className="text-xs text-rose-400/80">{analyticsError}. Showing zero-data empty state instead of fabricated metrics.</p>
+            </div>
+          </div>
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="text-xs px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-bold transition flex items-center gap-1.5"
+          >
+            <RefreshCw className={`w-3 h-3 ${refreshing ? 'animate-spin' : ''}`} />
+            <span>Retry</span>
+          </button>
         </div>
       )}
 

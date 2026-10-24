@@ -76,15 +76,82 @@ export function initDb() {
   }
 }
 
-export function getDbStatus() {
-  if (!isSupabaseConfigured && process.env.SUPABASE_URL) {
+export async function getDbStatus() {
+  const rawUrl = process.env.SUPABASE_URL?.trim()?.replace(/^['"]|['"]$/g, '');
+  const isTargetingSupabase = Boolean(rawUrl && !rawUrl.includes('your-project-id'));
+
+  if (!isSupabaseConfigured && isTargetingSupabase) {
     initDb();
   }
-  return {
-    type: isSupabaseConfigured ? 'supabase' : 'local_json',
-    supabaseConfigured: isSupabaseConfigured,
-    url: isSupabaseConfigured ? (process.env.SUPABASE_URL?.replace(/^['"]|['"]$/g, '') || null) : null
-  };
+
+  if (isSupabaseConfigured && supabaseClient) {
+    try {
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Supabase health check timed out')), 3000)
+      );
+
+      const pingPromise = supabaseClient
+        .from('calls')
+        .select('id', { head: true, count: 'exact' })
+        .limit(1);
+
+      const result = await Promise.race([pingPromise, timeoutPromise]);
+
+      if (result.error) {
+        console.warn('Supabase health check failed, falling back to local mode:', result.error.message);
+        return {
+          type: 'supabase',
+          supabaseConfigured: true,
+          connected: false,
+          status: 'unreachable',
+          error: 'Supabase service unreachable',
+          url: rawUrl ? `${rawUrl.slice(0, 25)}...` : null
+        };
+      }
+
+      return {
+        type: 'supabase',
+        supabaseConfigured: true,
+        connected: true,
+        status: 'healthy',
+        url: rawUrl ? `${rawUrl.slice(0, 25)}...` : null
+      };
+    } catch (err) {
+      console.warn('Supabase connectivity check exception:', err.message);
+      return {
+        type: 'supabase',
+        supabaseConfigured: true,
+        connected: false,
+        status: 'unreachable',
+        error: 'Supabase connection failed',
+        url: rawUrl ? `${rawUrl.slice(0, 25)}...` : null
+      };
+    }
+  }
+
+  // Local JSON storage mode
+  try {
+    ensureLocalDataFile();
+    const calls = readLocalCalls();
+    return {
+      type: 'local_json',
+      supabaseConfigured: false,
+      connected: true,
+      status: 'healthy',
+      totalCalls: calls.length,
+      url: null
+    };
+  } catch (err) {
+    console.warn('Local data file check error:', err.message);
+    return {
+      type: 'local_json',
+      supabaseConfigured: false,
+      connected: false,
+      status: 'error',
+      error: 'Local data store inoperable',
+      url: null
+    };
+  }
 }
 
 export async function createCall({ started_at = new Date().toISOString(), recording_consent = false } = {}) {

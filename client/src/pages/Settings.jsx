@@ -25,12 +25,12 @@ export default function Settings() {
   const loadSettings = async () => {
     setLoading(true);
     try {
-      const [statusData, productData] = await Promise.all([
+      const [statusResult, productResult] = await Promise.allSettled([
         fetchSystemStatus(),
         fetchProductConfig()
       ]);
-      setStatus(statusData);
-      setProduct(productData);
+      if (statusResult.status === 'fulfilled') setStatus(statusResult.value);
+      if (productResult.status === 'fulfilled') setProduct(productResult.value);
     } catch (err) {
       console.error('Error fetching settings:', err);
     } finally {
@@ -133,6 +133,11 @@ export default function Settings() {
               <span className="flex items-center space-x-1 text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-semibold">
                 <CheckCircle2 className="w-3.5 h-3.5" />
                 <span>Supabase Live</span>
+              </span>
+            ) : status?.supabase?.type === 'supabase' && status?.supabase?.connected === false ? (
+              <span className="flex items-center space-x-1 text-[11px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30 font-semibold">
+                <AlertTriangle className="w-3.5 h-3.5" />
+                <span>Supabase Offline (Local Fallback)</span>
               </span>
             ) : (
               <span className="flex items-center space-x-1 text-[11px] px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/30 font-semibold">

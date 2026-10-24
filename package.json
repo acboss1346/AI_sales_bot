@@ -8,6 +8,8 @@
     "dev:server": "npm --prefix server run dev",
     "dev:client": "npm --prefix client run dev",
     "dev": "echo 'Run npm run dev:server in one terminal and npm run dev:client in another terminal.'",
-    "build:client": "npm --prefix client run build"
+    "build:client": "npm --prefix client run build",
+    "test:server": "npm --prefix server test",
+    "test": "npm run test:server"
   }
 }

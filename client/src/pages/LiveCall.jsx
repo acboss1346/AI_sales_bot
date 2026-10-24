@@ -315,7 +315,7 @@ export default function LiveCall() {
               <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
               <span>Full duplex speech: You can interrupt the AI at any time.</span>
             </span>
-            <span className="text-gray-500 font-mono">English • Hindi • Hinglish</span>
+            <span className="text-gray-500 font-mono">English • Hindi • Telugu • Hinglish</span>
           </div>
         </div>
       </div>
